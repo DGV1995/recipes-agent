@@ -1,0 +1,15 @@
+[project]
+name = "recipes-agent"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "langchain-openai>=0.3.28",
+    "langgraph>=0.6.3",
+    "openai>=1.98.0",
+    "pillow>=11.3.0",
+    "pydantic>=2.11.7",
+    "python-dotenv>=1.1.1",
+    "supabase>=2.17.0",
+]
