@@ -5,16 +5,6 @@
       "source.fixAll": "explicit",
       "source.organizeImports": "explicit"
     },
-    "editor.defaultFormatter": "ms-python.black-formatter"
-  },
-  // Test settings
-  "python.testing.pytestEnabled": true,
-  "python.testing.unittestEnabled": false,
-  "python.testing.cwd": "${workspaceFolder}/test",
-  "python.testing.pytestPath": "${workspaceFolder}/.venv/bin/pytest",
-  "python.testing.autoTestDiscoverOnSaveEnabled": true,
-  "python.testing.pytestArgs": [
-    "--cov=api-order-entry-api-wk",
-    "--cov-report=term-missing"
-  ]
+    "editor.defaultFormatter": "charliermarsh.ruff"
+  }
 }

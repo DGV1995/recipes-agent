@@ -1,20 +1,21 @@
 import base64
 import json
 
-from langchain_core.exceptions import OutputParserException
-from langchain_core.tools import tool
 from openai import OpenAI
 from pydantic import ValidationError
 from supabase import create_client
 
 from recipes_agent.constants import IMAGES_URL, SUPABASE_KEY, SUPABASE_URL
-from recipes_agent.utils import parse_recipe
 
 supabase = create_client(supabase_url=SUPABASE_URL, supabase_key=SUPABASE_KEY)
 openai = OpenAI()
 
 
-@tool(description="Generates a recipe")
+CATEGORIES = ["Plato principal", "Snack", "Postre", "Desayuno"]
+TYPES = ["Keto", "Vegana", "Vegetariana", "General", "Sin gluten"]
+
+
+# @tool(description="Generates a recipe")
 def generate_recipe(details: str) -> dict:
     """
     Generates a recipe
@@ -31,51 +32,68 @@ def generate_recipe(details: str) -> dict:
         The generated recipe dictionary
     """
 
-    prompt = (
-        """
+    print(f"Generating recipe: {details}")
+
+    # with open("recipes_agent/recipe_mock.txt") as file:
+    #     recipe_text = file.read()
+    #     return json.loads(recipe_text)
+
+    prompt = f"""
     Crea una receta, siguiendo las siguientes instrucciones:
     - El nombre de la receta debe ser conciso y descriptivo, usando solo alimentos relevantes.
+    - Evita SIEMPRE los caracteres '```json' y usa comillas dobles para los nombres de las claves y los valores.
     - Los valores extraídos deben estar traducidos al español de España.
-    - No pongas saltos de línea de tu respuesta. Debe ir todo el texto en una sola línea.
+    - No pongas saltos de línea de tu respuesta. Debe ir todo el texto en una sola línea, y no pongas espacios entre linea y linea.
     - El nombre de la receta sólo debe tener mayúscula la primera letra.
-    - Tu respuesta debe tener el siguiente formato:
-    
-    name: comida,
-    ingredients:[
-        name: str,
-        qty: int | float, (cantidad)
-        uom: str (unidad de medida)
-    ],
-    cooking_time: int (minutes)
-    instructions: [
-        Instrucción (sin número),
-        Instrucción, 
-        ...
-    ],
-    category: categoría,
-    types: [
-        tipo1,
-        tipo2,
-        ...
-    ],
-    image_url: str
-    macros:
-        proteins:
-            qty: int, (cantidad)
-            uom: str, (unidad de medida)
-        carbs: 
-            qty: int,
-            uom: str,
-        fats:
-            qty: int,
-            uom: str,
-        calories:
-            qty: int,
-            uom: str,
-        
+    - Las instrucciones deben tener todas la primera letra mayúscula, y no tener número delante.
+    - Los tipos deben ser estar entre los siguientes (puede ser más de uno si cumple los requisitos): {", ".join(TYPES)}
+    - La categoría **sólo** puede ser uno de los siguientes valores: [{", ".join(CATEGORIES)}]. No pueden ser 'Ensalada', 'Sopa' o valores por el estilo
+    - Siempre debes incluir las claves de la respuesta (name, ingredients, cooking_time, etc).
+    - Ningún valor puede estar vacío.
+
+    Formato:
+
+    {{
+        "name": "comida",
+        "ingredients": [
+            {{
+                "name": str,
+                "qty": int,
+                "uom": str
+            }}
+        ],
+        "instructions": [
+            "Instrucción",
+            "Instrucción"
+        ],
+        "category": "categoría",
+        "types": [
+            "tipo1",
+            "tipo2"
+        ],
+        "cooking_time": int,
+        "macros": [
+            "proteins": {{
+                "qty": int,
+                "uom": str
+            }},
+            "carbs": {{
+                "qty": int,
+                "uom": str
+            }},
+            "fats": {{
+                "qty": int,
+                "uom": str
+            }},
+            "calories": {{
+                "qty": int,
+                "uom": str
+            }}
+        ]
+    }}
+
+    La receta que debes crear es la siguiente: '{details}'
     """
-        + f"\nLa receta que debes crear es la siguiente: '{details}'"
-    )
 
     response = openai.chat.completions.create(
         model="gpt-4.1-nano", messages=[{"role": "user", "content": prompt}]
@@ -84,13 +102,13 @@ def generate_recipe(details: str) -> dict:
     content = response.choices[0].message.content
 
     try:
-        data = parse_recipe(content)
+        data = json.loads(content)
         return data
     except (json.JSONDecodeError, ValidationError, ValueError) as e:
-        raise OutputParserException(f"Error al validar receta: {str(e)}")
+        print(f"Error al validar receta '{details}': {str(e)}")
 
 
-@tool(description="Generates a realistic picture and uploads it to the database")
+# @tool(description="Generates a realistic picture and uploads it to the database")
 def generate_recipe_image(recipe_name: str) -> str:
     """
     Creates a realistic image from a recipe.
@@ -105,6 +123,8 @@ def generate_recipe_image(recipe_name: str) -> str:
     str
         The URL of the generated image
     """
+
+    print(f"Getting URL image for {recipe_name}")
     return "https://nzcrspzqtgrubcpiwpxc.supabase.co/storage/v1/object/public/images//avena%20con%20claras,%20chocolate%20y%20almendras.png"
 
     response = openai.images.generate(
@@ -127,7 +147,7 @@ def generate_recipe_image(recipe_name: str) -> str:
     return image_url
 
 
-@tool(description="Uploads a complete recipe (with its image) to the database.")
+# @tool(description="Uploads a complete recipe (with its image) to the database.")
 def upload_recipe(recipe: dict, image_url: str) -> dict:
     """
     Args
@@ -142,6 +162,8 @@ def upload_recipe(recipe: dict, image_url: str) -> dict:
     dict:
         The response dictionary
     """
+
+    print(f"Uploading recipe '{recipe['name']}' with image URL {image_url}")
     recipe["image_url"] = image_url
 
     # TODO: resume recipe for recipe_resume field
